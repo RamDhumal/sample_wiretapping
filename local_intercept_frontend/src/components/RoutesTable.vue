@@ -1,16 +1,45 @@
 <script setup>
 import { ref } from "vue"
 
-// Example data
 const routes = ref([
-  { id: 1, source: "New York", destination: "Los Angeles", playing: false },
-  { id: 2, source: "London", destination: "Paris", playing: false },
-  { id: 3, source: "Tokyo", destination: "Osaka", playing: false },
+  { id: 1, source: "New York", destination: "Los Angeles", playing: false, audio: null },
+  { id: 2, source: "London", destination: "Paris", playing: false, audio: null },
+  { id: 3, source: "Tokyo", destination: "Osaka", playing: false, audio: null },
 ])
 
-// Toggle play/pause for a row
-function togglePlay(route) {
-  route.playing = !route.playing
+async function togglePlay(route) {
+  if (!route.playing) {
+    // Stop others
+    routes.value.forEach(r => {
+      if (r.playing && r.audio) {
+        r.audio.pause()
+        r.audio.currentTime = 0
+        r.playing = false
+      }
+    })
+
+    // Call backend to get audio
+    const response = await fetch(`http://localhost:8080/api/audio/play/${route.id}`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+
+    // Create audio element and play
+    route.audio = new Audio(url)
+    route.audio.play()
+    route.playing = true
+    
+    // Reset button when audio ends
+    route.audio.addEventListener('ended', () => {
+      route.playing = false
+    })
+  } else {
+    // Pause this audio
+    if (route.audio) {
+      route.audio.pause()
+      route.audio.currentTime = 0
+    }
+    route.playing = false
+  }
 }
 </script>
 
@@ -35,7 +64,7 @@ function togglePlay(route) {
               class="action-btn"
               :class="route.playing ? 'pause' : 'play'"
             >
-              {{ route.playing ? 'Pause' : 'Play' }}
+              {{ route.playing ? 'Stop' : 'Play' }}
             </button>
           </td>
         </tr>
