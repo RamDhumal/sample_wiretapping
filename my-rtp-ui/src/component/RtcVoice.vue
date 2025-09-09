@@ -23,7 +23,6 @@ async function connectWS() {
       await initializePeerConnection();
       await pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
 
-      // ✅ Flush buffered ICE after remoteDescription is set
       await flushBufferedCandidates();
 
       const answer = await pc.createAnswer();
@@ -35,8 +34,6 @@ async function connectWS() {
     if (msg.type === "answer") {
       await pc.setRemoteDescription({ type: "answer", sdp: msg.sdp });
       console.log("✅ Answer set as remote description");
-
-      // ✅ Flush buffered ICE after remoteDescription is set
       await flushBufferedCandidates();
     }
 
@@ -72,7 +69,14 @@ async function initializePeerConnection() {
   }
 
   pc = new RTCPeerConnection({
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },  // Free Google STUN
+      {
+        urls: "turn:140.238.254.38:3478",        // Your TURN server
+        username: "turnuser",
+        credential: "turnpass"
+      }
+    ]
   });
 
   localStream.value.getTracks().forEach((track) => pc.addTrack(track, localStream.value));
@@ -92,7 +96,6 @@ async function initializePeerConnection() {
   };
 }
 
-// ✅ Helper: flush candidates after remoteDescription is set
 async function flushBufferedCandidates() {
   if (pendingCandidates.length > 0) {
     console.log(`🚀 Flushing ${pendingCandidates.length} buffered ICE candidates`);
