@@ -41,6 +41,20 @@ public class SignalHandler extends TextWebSocketHandler {
       return;
     }
 
+    // Handle reject
+    if ("call_reject".equals(type)) {
+      String roomId = node.has("room") ? node.get("room").asText() : "default";
+      Set<WebSocketSession> peers = rooms.get(roomId);
+      if (peers != null) {
+        for (WebSocketSession peer : peers) {
+          if (peer.isOpen() && !peer.getId().equals(session.getId())) {
+            peer.sendMessage(new TextMessage("{\"type\":\"call_reject\",\"from\":\"" + session.getId() + "\"}"));
+          }
+        }
+      }
+      return;
+    }
+
     // Relay signaling messages (offer, answer, candidate)
     if (Arrays.asList("offer", "answer", "candidate").contains(type)) {
       String roomId = node.has("room") ? node.get("room").asText() : "default";
@@ -53,6 +67,15 @@ public class SignalHandler extends TextWebSocketHandler {
 
       for (WebSocketSession peer : peers) {
         if (peer.isOpen() && !peer.getId().equals(session.getId())) {
+          if ("offer".equals(type)) {
+            // 🔔 Send call invite before actual offer
+            String callInvite = String.format(
+              "{\"type\":\"call_invite\",\"from\":\"%s\"}", session.getId()
+            );
+            peer.sendMessage(new TextMessage(callInvite));
+          }
+
+          // Forward original signaling message
           peer.sendMessage(new TextMessage(message.getPayload()));
         }
       }
