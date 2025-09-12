@@ -12,7 +12,7 @@ const remoteAudio = ref(null);
 
 const incomingCall = ref(null);
 const callAccepted = ref(false);
-const pendingOffer = ref(null); // 🔹 Store incoming offer until Accept is clicked
+const pendingOffer = ref(null); // store incoming offer until Accept is clicked
 
 async function connectWS() {
   ws = new WebSocket(wsUrl);
@@ -29,29 +29,9 @@ async function connectWS() {
     }
 
     if (msg.type === "offer") {
-  incomingCall.value = msg.from || "Unknown";
-  if (confirm(`📞 Incoming call from ${msg.from || "Caller"}\nAccept?`)) {
-    // user clicked OK → accept call
-    pc = createPeerConnection();
-    await pc.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: msg.sdp }));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    ws.send(JSON.stringify({ type: "answer", room: roomId, sdp: answer.sdp }));
-  } else {
-    ws.send(JSON.stringify({ type: "reject", room: roomId }));
-    alert("❌ Call rejected");
-  }
-
-
-
-      await initializePeerConnection();
-      await pc.setRemoteDescription({ type: "offer", sdp: msg.sdp });
-      await flushBufferedCandidates();
-
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ type: "answer", room: roomId, sdp: answer.sdp }));
-      console.log("📤 Sent answer");
+      incomingCall.value = msg.from || "Unknown";
+      pendingOffer.value = msg; // store the offer
+      console.log("📩 Stored incoming offer, waiting for user action");
     }
 
     if (msg.type === "answer") {
@@ -77,6 +57,8 @@ async function connectWS() {
 
     if (msg.type === "call_rejected") {
       alert("❌ Call rejected by callee");
+      incomingCall.value = null;
+      pendingOffer.value = null;
     }
   };
 
